@@ -2,17 +2,103 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <!-- 載入 A-Frame 同 AR.js -->
+    <title>AR Instruments World</title>
+    <!-- 載入 A-Frame 與 AR.js 程式庫 -->
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      #ui-overlay {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-family: sans-serif;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 999;
+        text-align: center;
+      }
+    </style>
   </head>
   <body style="margin: 0px; overflow: hidden;">
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      <!-- 掃 Hiro Marker 會出現一個旋轉的紅色方塊 -->
+
+    <!-- 介面提示區 -->
+    <div id="ui-overlay">掃描 Hiro Marker，點擊樂器發出聲音！</div>
+
+    <!-- AR 場景與光線設定 -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" cursor="rayOrigin: mouse">
+      
       <a-marker preset="hiro">
-        <a-box position="0 0.5 0" material="color: red;" animation="property: rotation; to: 0 360 0; loop: true; dur: 3000"></a-box>
+        <!-- 樂器 1: 大鼓 (Bass Drum) -->
+        <a-cylinder id="drum" position="-0.8 0.3 0" radius="0.3" height="0.4" material="color: #FF4136;"
+                    animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 1.2 1.2 1.2; to: 1 1 1">
+          <a-text value="DRUM" align="center" position="0 0.3 0" rotation="-90 0 0" scale="0.5 0.5 0.5" color="#FFFFFF"></a-text>
+        </a-cylinder>
+
+        <!-- 樂器 2: 鋼琴音符 (Piano Synth) -->
+        <a-box id="synth" position="0 0.4 0" width="0.4" height="0.6" depth="0.4" material="color: #0074D9;"
+               animation__click="property: rotation; startEvents: click; easing: easeInOutQuad; dur: 200; from: 0 0 0; to: 0 360 0">
+          <a-text value="SYNTH" align="center" position="0 0.4 0" rotation="0 0 0" scale="0.5 0.5 0.5" color="#FFFFFF"></a-text>
+        </a-box>
+
+        <!-- 樂器 3: 木琴/鋼鈸 (Cymbal/Bell) -->
+        <a-sphere id="bell" position="0.8 0.5 0" radius="0.25" material="color: #FFDC00; metalness: 0.8;"
+                  animation__click="property: material.color; startEvents: click; dur: 300; from: #FFFFFF; to: #FFDC00">
+          <a-text value="BELL" align="center" position="0 0.35 0" rotation="0 0 0" scale="0.5 0.5 0.5" color="#000000"></a-text>
+        </a-sphere>
+
+        <!-- 3D 舞台底座 -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="2.5" height="1.5" material="color: #333333; opacity: 0.8;"></a-plane>
       </a-marker>
+
+      <!-- 攝影機 -->
       <a-entity camera></a-entity>
     </a-scene>
+
+    <!-- Web Audio API 發聲邏輯 -->
+    <script>
+      // 建立 Web Audio 上下文
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // 發聲函式：產生指定頻率與音調
+      function playTone(freq, type = 'sine', duration = 0.3) {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      }
+
+      // 綁定各個 3D 樂器的點擊觸發事件
+      document.querySelector('#drum').addEventListener('click', () => {
+        playTone(80, 'triangle', 0.4); // 重低音鼓聲
+      });
+
+      document.querySelector('#synth').addEventListener('click', () => {
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C5, E5, G5, C6 和弦音
+        const randomNote = notes[Math.floor(Math.random() * notes.length)];
+        playTone(randomNote, 'square', 0.25); // 電子合成音
+      });
+
+      document.querySelector('#bell').addEventListener('click', () => {
+        playTone(1200, 'sine', 0.6); // 高音金屬聲
+      });
+    </script>
   </body>
 </html>
